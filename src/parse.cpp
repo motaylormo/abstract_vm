@@ -135,9 +135,4 @@ void	parse_line(VM *vm, std::deque<int> *tokens, std::deque<std::string> *strs)
 		strs->pop_front();
 	}
 	exec_line(vm, (int)command, op);
-	if (tkn == (int)septype::Newline)
-	{
-		tokens->pop_front();
-		strs->pop_front();
-	}
 }
