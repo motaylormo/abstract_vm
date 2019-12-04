@@ -8,35 +8,36 @@
 #include "../lexer/lex_tokens.hpp"
 #include "unix_colors.h"
 
+
 void	parse_line(VM *vm, std::deque<int> *tokens, std::deque<std::string> *strs);
 
-int	main(int argc, char **argv)
+void	lexed_to_deque(char *file, std::deque<int> *tokens, std::deque<std::string> *strs)
 {
-	VM			*vm = new VM();
 	FlexLexer*	lexer = new yyFlexLexer();
-	if (argc > 1)
+	int			tkn;
+	bool		exit_flag = false;
+
+	if (file)
 	{
-		std::ifstream* filestream = new std::ifstream(argv[1]);
+		std::ifstream* filestream = new std::ifstream(file);
 		if (filestream->good() == 0)
 		{
 			perror("Can't open file");
-			return (0);
+			exit(0);
 		}
 		lexer->switch_streams(filestream);
 	}
 
-	int	tkn;
-	std::deque<int>			tokens;
-	std::deque<std::string>	strs;
-	bool					exit_flag = false;
-	while ((tkn = lexer->yylex()) && (tkn != (int)septype::EndStream))
+	while ((tkn = lexer->yylex()))
 	{
+		if (tkn == (int)septype::EndStream)
+			break;
 		if (tkn == (int)septype::Space)
 			;
 		else
 		{
-			tokens.push_back(tkn);
-			strs.push_back(lexer->YYText());
+			tokens->push_back(tkn);
+			strs->push_back(lexer->YYText());
 			if (tkn == (int)commandtype::Exit)
 				exit_flag = true;
 		}
@@ -47,8 +48,25 @@ int	main(int argc, char **argv)
 						<< B_RED << "No exit command given" << COLOR_OFF << std::endl;
 	}
 
+}
+
+int	main(int argc, char **argv)
+{
+	VM			*vm = new VM();
+	std::deque<int>			tokens;
+	std::deque<std::string>	strs;
+
+	lexed_to_deque(argc > 1 ? argv[1] : 0, &tokens, &strs);
+
 	while (!tokens.empty())
 	{
+		if (tokens.front() == (int)septype::Newline)
+		{
+			tokens.pop_front();
+			strs.pop_front();
+			if (tokens.empty())
+				break;
+		}
 		try
 		{
 			parse_line(vm, &tokens, &strs);
@@ -57,6 +75,12 @@ int	main(int argc, char **argv)
 		{
 			std::cout << B_RED << BOLD << "Error: " << COLOR_OFF
 						<< B_RED << e.what() << COLOR_OFF << std::endl;
+			//	pop off until \n
+			while (!tokens.empty() && (tokens.front() != (int)septype::Newline))
+			{
+				tokens.pop_front();
+				strs.pop_front();
+			}
 		}
 	}
 
